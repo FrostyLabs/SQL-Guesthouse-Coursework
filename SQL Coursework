@@ -1,0 +1,96 @@
+--Question 5: How many bookings, how many nights? For guests 1185 and 1270 show the number of bookings made and the total number nights. Your output should include the guest id and the total number of bookings and the total number of nights.
+SELECT guest_id, count(booking_id) AS 'bookings',sum(nights) AS 'nights' FROM booking 
+  JOIN guest ON guest_id = guest.id
+  WHERE guest_id in (1185, 1270) 
+  GROUP BY guest_id;
+
+
+--Question 6:	Ruth Cadbury. Show the total amount payable by guest Ruth Cadbury for her room bookings. You should JOIN to the rate table using room_type_requested and occupants.
+SELECT SUM((nights * amount)) AS 'Total Amount' FROM rate 
+JOIN booking ON (rate.room_type = booking.room_type_requested AND rate.occupancy =   booking.occupants)
+  JOIN guest ON (guest.id = booking.guest_id)
+  WHERE last_name = "Cadbury" AND first_name = "Ruth";
+
+--Question 7: Including Extras. Calculate the total bill for booking 5128 including extras.
+SELECT sum((rate.amount*booking.nights)+extra.amount) AS 'Total bill for 5128'
+FROM booking 
+  JOIN rate ON (rate.room_type = booking.room_type_requested AND rate.occupancy 
+    = booking.occupants)
+  JOIN extra ON booking.booking_id = extra.booking_id
+  WHERE extra.booking_id = 5128;
+
+--Question 8:	Edinburgh Residents. For every guest who has the word “Edinburgh” in their address show the total number of nights booked. Be sure to include 0 for those guests who have never had a booking. Show last name, first name, address and number of nights. Order by last name then first name.
+SELECT last_name, first_name, address, nights from booking
+  INNER JOIN guest ON guest.id = booking.guest_id
+  WHERE address like ('Edinburgh %')
+
+  GROUP BY last_name, first_name, address, nights
+  ORDER BY last_name, first_name;
+
+--Question 9: Show the number of people arriving. For each day of the week beginning 2016-11-25 show the number of people who are arriving that day.
+SELECT booking_date, sum(occupants) from booking 
+  WHERE booking_date BETWEEN '2016.11.25' AND '2016.12.02' 
+  GROUP BY booking_date;
+
+
+--PART 2 OF COURSEWORK
+
+-- drop changes while in development mode
+DROP TABLE IF EXISTS `payment`;
+DROP TABLE IF EXISTS `payment_type`;
+DROP TABLE IF EXISTS `vat`; 
+ALTER TABLE `guest` DROP COLUMN IF EXISTS `ccnum`;
+ALTER TABLE `rate` DROP COLUMN IF EXISTS `vat(20%)`;
+ALTER TABLE `rate` DROP COLUMN IF EXISTS `excl_vat`;
+ALTER TABLE `booking` DROP COLUMN IF EXISTS `payment_id`;
+
+
+--add changes to tables while in development mode
+ALTER TABLE `guest` ADD COLUMN `ccnum` VARCHAR(16);
+ALTER TABLE `rate` ADD COLUMN `vat(20%)` decimal(10,2);
+ALTER TABLE `rate` ADD COLUMN `excl_vat` decimal(10,2);
+ALTER TABLE `booking` ADD COLUMN `payment_id` VARCHAR(6);
+
+
+-- add values to columns
+UPDATE `guest` SET `ccnum` = '1234123412341234' WHERE id = 1649;
+UPDATE `rate` SET `vat(20%)` = rate.amount*0.2;
+UPDATE `rate` SET `excl_vat` = rate.amount*0.8;
+UPDATE `booking` SET `payment_id` = '5360:1' WHERE booking_id = 5360;
+UPDATE `booking` SET `payment_id` = '5360:1' WHERE booking_id = 5359;
+UPDATE `booking` SET `payment_id` = '5360:2' WHERE booking_id = 5359;
+
+
+--create payment table and insert values
+CREATE table payment(
+  `booking_id` int(11) NOT NULL,
+  `payment_id` varchar(6) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `payment_type` int(1) NOT NULL, 
+  `payment_date` date DEFAULT NULL,
+  PRIMARY KEY (`payment_id`),
+  KEY (`booking_id`)
+);
+INSERT INTO payment VALUES (5360, '5360:1', 216.00, 2, '2015-12-11');
+INSERT INTO payment VALUES (5359, '5359:1', 288.00, 2, '2015-11-20');
+INSERT INTO payment VALUES (5359, '5359:2', 49.06, 3, '2015-11-28');
+
+ 
+--create payment_type and insert values
+CREATE table payment_type(
+  `payment_id` int(11) NULL,
+  `ccard_type_is` int(1) NOT NULL,
+  `dcard_type_is` int(1) NOT NULL,
+  `cash_type_is` int(1) NOT NULL,
+  PRIMARY KEY (`payment_id`)
+);
+INSERT INTO payment_type VALUES (0000, 1, 2, 3);
+
+
+--create vat table and insert values
+CREATE table vat (
+  `amount` VARCHAR(3) NOT NULL,
+  PRIMARY KEY (`amount`)
+);
+INSERT INTO vat VALUES ('20%');
+
